@@ -3,7 +3,11 @@ console.log("hola Mundo AHT")
 const express = require ("express");
 require ("dotenv").config(); // variable de entorno ..llamo
 const morgan = require("morgan");
-const productRoutes = require("./routes/productRoutes"); //importar los endpoints (rutas)
+const productRoutes = require("./routes/product.routes"); //importar los endpoints (rutas) productRoutes
+const authRoutes=require("./routes/auth.routes");
+const cartRoutes=require("./routes/cart.routes");
+const favoritesRoutes=require("./routes/favorites.routes");
+const usersRoutes=require("./routes/user.routes");
 
 
 const app = express();  // creado el server Y CORRIENDO
@@ -14,7 +18,13 @@ app.use(express.json()) // le digo que express va a trabajar con respuesta de ti
 app.use(express.urlencoded({extended:true})); // le digo a express que sea capaz de leer los datos de formularios que envio o genero
 
 //ROUTES
-app.use("/api/v1/products", productRoutes)
+// Configurar los prefijos de enrutadores
+// Todas las rutas dentro de / tendran el prefijo /api//v1/xxxx
+app.use("/api/v1/products", productRoutes);
+app.use("/api/v1/auth", authRoutes);
+app.use('/api/v1/cart', cartRoutes);
+app.use("/api/v1/favorites", favoritesRoutes);
+app.use("/api/v1/users", usersRoutes);
 
 
 // PUERTOS
