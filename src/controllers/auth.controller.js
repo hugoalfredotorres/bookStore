@@ -1,188 +1,192 @@
 // mini crud de usuarios auth
 
-const fs = require("fs"); //modulo sirve para poder trabajar con archivos. leer-escribir-borrar-etc
-const path = require("path"); // modulo para hacer transferen a ubicacione o construir la rutade la ubicacion del recurso
+// traigo el modelo de user.js
+const e = require('express');
+const User= require('../models/User');
 
-const filePath = path.resolve(__dirname, "../data/users.json"); // aqui es la ruta donde guardo o leo mis datos
-
-// leer usuarios
-const readUsers = () => {
-  const data = fs.readFileSync(filePath, "utf8"); // leee de manera asincro la info en users.json
-  return JSON.parse(data); // funcion de parsearla json-convierto a un obj de js
-};
-
-// escribir usuarios
-
-const writeUsers = (users) => {
-  fs.writeFileSync(filePath, JSON.stringify(users, null, 2)); // creo un usuario y escribo el doc entero
-};
-
-
-// getallusers-- para ver todos los usuarios
-
-const getAllusers=(req, res)=>{
-
-    try {
-      const users= readUsers();
-      if(users.length===0){    //pregunto si la long es cero ... es xq no hay usuarios
-        return res.status(404).json({
-          ok:false,
-          message:"No hay Usuarios en la base de datos"
-        })
-      }
-       return res.status(200).json({
-        ok:true,
-        message: "lista de usuarios obtenida de base de datos",
-        data:{
-          length: users.length, // le digo cuantos usuarios son
-          users,                // los usuarios mismos
-        }
-
-       })
-
-  } catch (error) {
-    console.log(error);
-    return res.status(500).json(error.message);
-    
-  }
-}
-
-
-// funcion para registrar los usuarios y validar que NO este vacio
-const register = (req, res) => {
+// funcion para getallgetAllusers users.. leer toos los usuarios
+const getAllUsers=async (req, res)=>{
   try {
-    const { email, password } = req.body;
-    // validamos que llegue la info basica
-    if (!email || !password) {
-      return res.status(400).json({
-        ok: false,
-        message: " email y password son requeridos",
-      });
+
+    const users=await User.find().select("-password");  //find trae tod los documentos que le pida-todos los usuarios menos la password
+
+    // validamos que existan usuarios para enviar mensaje al front
+    if(users.length===0){
+      return res.status(404).json({
+      ok:false,
+      message:'no se encontraron usuarios en la DB 🛩️'
+    })
     }
-
-    // funcion para leer los ususarios y validar que el email NO este en uso
-    const users = readUsers(); // leo los usuarios
-    const exist = users.find((u) => u.email === email); // recorre los email y compara con el email que vino de req body
-    if (exist) {
-      return res.status(409).json({
-        ok: false,
-        message: " el usuario ya existe",
-      });
-    }
-
-    // crear un objeto  el usuario con su info
-
-    const newUser = {
-      id: crypto.randomUUID(), // ide usuario unico con random
-      email,
-      password,
-    };
-    // sumo el nuevo ususario al array de usuario
-    users.push(newUser);
-    // sobre escribir el json con la info de usuarios actualizado
-    writeUsers(users);
-    // luego envio una repuesta al front
-    return res.status(201).json({
-      ok: true,
-      message: "usuario registrado con exito",
-      user: {
-        id: newUser.id,
-        email: newUser.email,
-      },
-    });
-
-    // error de comunicacion 500
-  } catch (error) {
-    console.log(error);
-    return res.status(500).json(error.message);
-  }
-};
-
-const login = (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    // validamos que llegue la info basica
-    if (!email || !password) {
-      return res.status(400).json({
-        ok: false,
-        message: " email y password son requeridos",
-      });
-    }
-
-    const users=readUsers(); // funcion auxiliar que nos permite leer los usuariso
-    const user=users.find(
-      (u) =>u.email===email && u.password===password
-    );
-    if(!user){
-      return res.status(401).json({
-        ok:false,
-        message:"credenciales incorrectas !!!"
-
-      })
-    }
+    // si hay datos en base de dato aunque sea uno
     return res.status(200).json({
       ok:true,
-      message:"login exitoso",
-      user:{
-        id:user.id , email:user.email
+      message:"usuarios encontrados en db",
+      data:{
+        length:users.length,
+        users,
       }
-       });
-
+    })
     
   } catch (error) {
-    console.log(error);
-    return res.status(500).json(error.message);
-    
+    console.error(error)
+    return res.status(500).json({
+      ok:false,
+      message:error.message
+    })
   }
 
+}
 
-};
-// delete user-borrar un usuario
-
-const deleteUser=(req, res)=>{
+// funcion para registrar los usuarios y validar que NO este vacio
+const register = async (req, res) => {
 
   try {
-
-    //const {id}=req.params; // lineas para chekear que la toma del parametros desp de la barra/
-    //return res.send(id);// aqui devuelvo el id del parametro
-
-    const {id}=req.params; // capturamos el id que viaja en el parametro de la ruta
-    const users= readUsers();
-    const exist=users.find ((u) => u.id===id); 
-    if(!exist){    //pregunto si no existe ese usurio con el id
-        return res.status(404).json({
-          ok:false,
-          message:"usuario no encontrado"
-        })
-      }
-      const filtered=users.filter((u)=> u.id!=id);
-      writeUsers(filtered);
-
-
-return res.status(200).json({
+    const{ name,email,password}=req.body;
+    //validar que llegue la info basica. lo hace auth.validator.js
+    // valido el email no este en uso. lo hace auth.validator.js
+    
+     // crear el usuario con mongoose
+    const newUser=await User.create({// creamos el usuario en mongoose
+      name,                         // le decimos los campos en el orden correcto
+       email,
+        password,
+         profilePic : req.file ? req.file.filename: null
+    });
+    return res.status(201).json({
       ok:true,
-      message:"usuario eliminado correctament",
-      deleteUser:{
-        id:exist.id,
-        email:exist.email
-      }
-       });
+      message:'usuario registrado corectamente 🙋‍♂️',
+      user:{
+        id:newUser._id,  // guion bajo es porque ya viene de mongodb
+        name:newUser.name,
+        email:newUser.email,
+        role:newUser.role,
+        foto:newUser.profilePic
+      },
+    })
 
 
-       
-
+    
   } catch (error) {
-    console.log(error);
-    return res.status(500).json(error.message);
+    console.error(error)
+    return res.status(500).json({
+      ok:false,
+      message:error.message
+    })
     
   }
 }
+   // funcion para Login de los usuarios
+   const login =async(req,res)=>{
+    try {
 
+      const{ email, password}=req.body;
+
+      //validar que tenga la informacion basica-lo hace el middlewares auth.validators
+      //validar que llegue la info basica-lo hace el middlewares auth.validators
+    
+    // verificar si el email y password estan correcto
+    const user=await User.findOne({email, password}); //buscame que me encuentre un usario con el email y passwor iguales
+    
+    // si encontro un email y password en req.body.. entonce te logueo
+
+    return res.status(200).json({
+      ok:true,
+      message:'login exitoso✔️',
+      user:{
+        id:user._id,
+        mane:user.name,
+        email:user.email,
+        role: user.role,
+      }
+    })
+
+      
+    } catch (error) {
+    console.error(error)
+    return res.status(500).json({
+      ok:false,
+      message:error.message
+    })
+    
+  }
+   }
+
+   // Funciom para realizar el camibo de role
+    const updateUserRole=async(req, res)=>{
+    try {
+      const {id}=req.params; // atrapo el id del params
+      const {role}=req.body; // atrapo el role que bien en body
+
+      // buscar y actulaizar el usuario con findByIdAndUpdate
+      const updateUser= await User.findByIdAndUpdate(
+        id,
+        {role},// actualices el role
+        {new:true, 
+        runValidators:true} // correr las validaciones
+      ).select("-password");// le digo que no me traiga la password
+
+      // si encontro el usario y salio todo bien
+
+      return res.status(200).json({
+      ok:true,
+      message:`role actualizado correctamente`,
+      user:{
+        id:updateUser._id,
+        name:updateUser.name,
+        email:updateUser.email,
+        role:updateUser.role
+      }
+    })
+
+
+      
+    } catch (error) {
+      console.error(error)
+    return res.status(500).json({
+      ok:false,
+      message:error.message
+    })
+    }
+   }
+
+   // funcion para eliminar un usuario por su ID
+const deleteUser = async (req, res) => {
+  try {
+    // 1. Obtener el ID del usuario a eliminar
+    // Se asume que el ID vendrá en los parámetros de la URL (ej: /users/12345)
+    const { id } = req.params;
+
+    // 2. Ejecutar la eliminación
+    // findByIdAndDelete busca y elimina el documento en una sola operación
+    const deletedUser = await User.findByIdAndDelete(id).select("-password");// le digo que no me traiga la password;
+
+    // 3. Validar si el usuario existía-lo hace el middlewares auth.validators
+    
+    // 4. Respuesta exitosa
+    return res.status(200).json({
+      ok: true,
+      message: 'Usuario eliminado correctamente ✅',
+      user:deletedUser
+      //data: {
+        //id: deletedUser._id,
+        //name: deletedUser.name,
+      //}
+    });
+
+  } catch (error) {
+    // Manejo de errores (ej. formato de ID incorrecto)
+    console.error(error);
+    return res.status(500).json({
+      ok: false,
+      message: 'Error al intentar eliminar el usuario: ' + error.message
+    });
+  }
+}
 
 module.exports = {
   register,
   login,
-  getAllusers,
+  getAllUsers,
   deleteUser,
-};
+  updateUserRole 
+}
