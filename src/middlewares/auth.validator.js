@@ -1,21 +1,38 @@
-const{body, param, validationResult}=require ('express-validator');
+const{body, param, validationResult} = require ('express-validator');
 const User= require('../models/User');
 const { deleteOneFile } = require('../util/fileCleanpup');
-
-
+const ROLE_SUPERADMIN="superadmin";
 
 //middlware para manejar cualquier error de validaciones
-const handleValidationsError=(req, res, next)=>{
+const handleValidationsErrors=(req, res, next)=>{
     const errors= validationResult(req) // guardo en errors ls validationResult
 
     if(!errors.isEmpty()){  // si no esta vacio mando todos los errores
         return res.status(400).json({
             ok:false,
             message:'error de validacion',
-            errors:errors.mapped()// envio los erroes con formato que nos da mapped
-        })
+            errors:errors.mapped(),// envio los erroes con formato que nos da mapped
+        });
     }
     next();// si llega vacio xq no hay errores que continue
+}
+
+// nanejador de errores de archivos 
+const handleValidationsErrorWithFiles=(req, res, next)=>{
+    const errors=validationResult(req);
+
+    if(!errors.isEmpty()){
+        // si hay errores y se subio la foto, necesito eliminarlo
+        if(req.file){
+            deleteOneFile(req.file.path)
+        }
+        return res.status(400).json({
+            ok:false,
+            message:"errores de validacion",
+            errors:errors.mapped(),
+        });
+    }
+    next()
 }
 
 // validciones registro de un usuario
@@ -27,21 +44,27 @@ const validateRegister=[
     .trim()  // quito espacio al texto  entre medio
     .isLength({min:2}).withMessage('debe tener al menos 2 caracteres'),
 
+    // valido el surname
+    body("surname")
+    .notEmpty().withMessage('el nombre es requerid')
+    .isString().withMessage('el nombre debe ser un text')
+    .trim()  // quito espacio al texto  entre medio
+    .isLength({min:2}).withMessage('debe tener al menos 2 caracteres'),
+
     //validemos el email
      body('email')
      .notEmpty().withMessage('el email es requerid')
      .isEmail().withMessage('el mail no es formato valido')
      .normalizeEmail()//normaliza email
      // personalizo mi validacion( throw:arroja un new...)
-     .custom(async( email, {req})=>{
+     .custom(async( email)=>{
         const user=await User.findOne({email})
         if(user){
             
             // ysi ademas ese usuario tien una foto de perfil cargada '
             // aqui elimino la foto si el usuario exite asi no me llene el profile
-            if(req.file){ // aqui pregunto si vino el archivo con req.file
-                deleteOneFile(req.file.path)
-            }
+            //if(req.file){ // aqui pregunto si vino el archivo con req.file
+            //    deleteOneFile(req.file.path)
             throw new Error(' el usuario ya exite')
         }
      }),
@@ -51,8 +74,8 @@ const validateRegister=[
      .notEmpty().withMessage('la contraseña es requerida')
      .isLength({min:6}).withMessage('la contraseña debe tener al menos 6 caracteres'),
      
-     handleValidationsError // se usa este handleV.. por cada validacion
-]
+     handleValidationsErrorWithFiles,// se usa este handleV.. por cada validacion
+];
 
 // Validamos el login
 const validateLogin=[
@@ -72,29 +95,24 @@ const validateLogin=[
      body('password')
      .notEmpty().withMessage('la contraseña es requerida')
      .isLength({min:6}).withMessage('la contraseña debe tener al menos 6 caracteres')
-     .custom (async(password)=>{
-        const user=await User.findOne({password})
-        if(!user){
-       throw new Error(' credenciales incorrectas')
-    }
-     }),  
+     ,  
 
-     handleValidationsError // se usa este handleV.. por cada validacion
+     handleValidationsErrors // se usa este handleV.. por cada validacion
 ]
 
 // validamos el delete
-const validaUserId=[
+const validateUserId = [
     param('id')
-    .isMongoId().withMessage('el ID proporcionado no es valvido')
-    .custom(async(id)=>{
-        const user=await User.findById(id);
-        if(!user)
+        .isMongoId().withMessage("El ID proporcionado no es válido")
+        .custom(async (id) => {
+            const user = await User.findById(id);
+            if(!user)
             {
-                throw new Error(' el ususario no existe o no fue encontrado')
-            } 
-        
-    }),
-    handleValidationsError
+                throw new Error("El usuario no existe o no fue encontrado")
+            }
+        }),
+
+    handleValidationsErrors
 ]
 
 // validacion del role
@@ -106,7 +124,7 @@ const validaUpdateRole=[
     .notEmpty().withMessage('debe proporcionar el rol'),
     // .isIn(['user ',' admin','superadmin']).withMessage(' el rol debe ser: user admin o superadmin'), ver que no funciona
 
-    handleValidationsError
+    handleValidationsErrors
 ];
 
 const validateSuperAdmin=[
@@ -120,15 +138,42 @@ const validateSuperAdmin=[
             } 
         
     }),
-    handleValidationsError
+    handleValidationsErrors
 
 ]
+ // validaciones para el codigo de verific del email
 
+ const validateVerifyEmail=[
+    body('email')
+    .isEmail().withMessage('Email invalido')
+    .normalizeEmail()
+    .custom(async( email)=>{
+        const user=await User.findOne({email});
+        if(!user){
+            throw new Error(' el usuario  no se encuentra');
+        }
+    }),
+
+    body('code')
+    .isLength({min:6, max:6}).withMessage(' el codigo debe tener 6 dig')
+    .isNumeric().withMessage('el codigo debe ser numerico'),
+
+    handleValidationsErrors
+ ]
+
+ // validacion de ID DE MONGO
+ const validateMongoId=[
+    param('id')
+    .isMongoId().withMessage('el ID no es valido'),
+    handleValidationsErrors
+ ]
+ 
 module.exports={
     validateRegister,
     validateLogin,
-    validaUserId,
+    validateUserId,
     validaUpdateRole,
     validateSuperAdmin,
-
+    validateVerifyEmail,
+    validateMongoId,
 };

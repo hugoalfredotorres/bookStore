@@ -3,7 +3,7 @@
 
 // 1- requerir mongoose
 const mongoose = require('mongoose');
-//2- CREAR FNCIONQUE HACE LA CONEXION
+//2- CREAR FNCION QUE HACE LA CONEXION
 
 const connectDB=async()=>{
 

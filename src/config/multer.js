@@ -16,7 +16,7 @@ const fs = require ('fs'); // modulo fs nos ayuda a trab con archivos leerlos,es
 
 const profileStorage=multer.diskStorage({     // donde loa gurado y el nombre de la imagen
     destination:(req, file, cb)=>{
-        const  uploadPath=path.join(__dirname, '../../../uploads/profiles');// armo el camino a profile upload
+        const  uploadPath=path.join(__dirname, '../../src/uploads/profile');// armo el camino a profile upload
         // valido si la carpeta no exite o no la he creado
         if(!fs.existsSync(uploadPath)){
             fs.mkdirSync(uploadPath, {recursive:true} ) // si no exite el mkdirsync crea, y recursyn en true
@@ -46,7 +46,7 @@ const fileFilter= (req, file, cb)=>{
     }
 };
 
-// consifuracion para fotos de perfil( 1 archivo, max 2mb)(lo mejor jpeg y webp)
+// configuuracion para fotos de perfil( 1 archivo, max 2mb)(lo mejor jpeg y webp)
 const upLoadProfile= multer({
     storage:profileStorage,  // aqui le digo a multer donde guardar la fotos
 limits:{fileSize: 2*1024*1024},  // tamaño de bit para que sea 2 mb
